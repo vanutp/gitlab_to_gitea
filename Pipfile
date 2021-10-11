@@ -1,0 +1,8 @@
+[packages]
+python-gitlab = "*"
+requests = "*"
+python-dateutil = "*"
+pygitea = {git = "https://github.com/h44z/pygitea"}
+python-dotenv = "*"
+psycopg2-binary = "*"
+tqdm = "*"
