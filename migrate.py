@@ -1,6 +1,5 @@
 import os
 import random
-import re
 import string
 import traceback
 from datetime import datetime
@@ -9,13 +8,12 @@ from typing import Union
 import dateutil.parser
 import gitlab  # pip install python-gitlab
 import gitlab.v4.objects
-import psycopg2
 import pygitea  # pip install pygitea (https://github.com/h44z/pygitea)
 import requests
 from dotenv import load_dotenv
-from psycopg2._psycopg import connection
-from psycopg2.extras import DictCursor
 from tqdm import tqdm
+
+from utils import Conn, get_full_namespace_path, name_clean
 
 SCRIPT_VERSION = '1.0'
 GLOBAL_ERROR_COUNT = 0
@@ -33,27 +31,6 @@ GITLAB_ADMIN_PASS = os.getenv('GITLAB_ADMIN_PASS')
 
 GITEA_URL = os.getenv('GITEA_URL')
 GITEA_TOKEN = os.getenv('GITEA_TOKEN')
-
-GITEA_DB_URI = os.getenv('GITEA_DB_URI')
-GITLAB_DB_URI = os.getenv('GITLAB_DB_URI')
-
-
-#######################
-# CONFIG SECTION END
-#######################
-
-class Conn:
-    gt_cn: connection
-    gt_cur: DictCursor
-    gl_cn: connection
-    gl_cur: DictCursor
-
-    def __init__(self):
-        self.gt_cn = psycopg2.connect(GITEA_DB_URI)
-        self.gt_cur = self.gt_cn.cursor(cursor_factory=DictCursor)
-        self.gl_cn = psycopg2.connect(GITLAB_DB_URI)
-        self.gl_cur = self.gl_cn.cursor(cursor_factory=DictCursor)
-
 
 c = Conn()
 
@@ -566,15 +543,6 @@ def _import_user_keys(gitea_api: pygitea, keys: list[gitlab.v4.objects.UserKey],
     c.gt_cn.commit()
 
 
-def get_full_namespace_path(db_groups: dict[int, dict], namespace_id: int):
-    current_group = db_groups[namespace_id]
-    full_path = current_group['path']
-    while parent_id := current_group['parent_id']:
-        current_group = db_groups[parent_id]
-        full_path = current_group['path'] + '_' + full_path
-    return name_clean(full_path)
-
-
 def _import_groups(gitea_api: pygitea, groups: list[gitlab.v4.objects.Group]):
     print_info('Importing groups')
     c.gl_cur.execute('''select * from namespaces''')
@@ -778,16 +746,6 @@ def print_error(message):
     global GLOBAL_ERROR_COUNT
     GLOBAL_ERROR_COUNT += 1
     print_color(bcolors.FAIL, message)
-
-
-def name_clean(name):
-    newName = name.replace(' ', '_')
-    newName = re.sub(r'[^a-zA-Z0-9_\.-]', '-', newName)
-
-    if (newName.lower() == 'plugins'):
-        return newName + '-user'
-
-    return newName
 
 
 if __name__ == '__main__':
